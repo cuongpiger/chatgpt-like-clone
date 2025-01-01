@@ -1,4 +1,5 @@
 # ChatGPT like one
+_This is just a small project for lab purposes. NOT for production._
 <hr>
 
 - **ChatGPT-like one** is a web-chat application using Gradio and Haystack.
