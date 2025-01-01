@@ -3,6 +3,14 @@
 _This is just a small project for lab purposes. NOT for production._
 <hr>
 
+###### 🌈 Table of Contents
+
+- [Next plans](#next-plans)
+- [Overview](#overview)
+- [Installation](#installation)
+
+<hr>
+
 # Next plans
 
 - [ ] Deploy it on Kubernetes.
