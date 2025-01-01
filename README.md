@@ -1,4 +1,4 @@
-# ChatGPT like one
+# ChatGPT-like clone
 
 _This is just a small project for lab purposes. NOT for production._
 <hr>
