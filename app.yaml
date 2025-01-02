@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatgpt-clone-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatgpt-clone
+  template:
+    metadata:
+      labels:
+        app: chatgpt-clone
+    spec:
+      containers:
+      - name: chatgpt-clone
+        image: vcr.vngcloud.vn/60108-cuongdm3/chatgpt-like-clone:base
+        command: ["python"]
+        args: ["main.py", "http://ollama33.ollama"]  # please chaage the ollama server address
+        ports:
+        - containerPort: 7860
+      nodeSelector:
+        vks.vngcloud.vn/nodegroup: nodegroup-27051 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatgpt-clone-service
+spec:
+  selector:
+    app: chatgpt-clone
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 7860
+    nodePort: 30007 # Specify a fixed NodePort (optional) or let Kubernetes choose

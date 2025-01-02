@@ -15,6 +15,7 @@ from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
 
 import gradio as gr
 from typing import List
+import sys
 
 raw_document_store = InMemoryDocumentStore(embedding_similarity_function="cosine")
 document_store = InMemoryDocumentStore(embedding_similarity_function="cosine")
@@ -44,7 +45,7 @@ model_name = "llama3.1:8b"
 chat_generator = OllamaChatGenerator(
     model=model_name,  # llama3.3 or llama3.1:8b
     streaming_callback=lambda chunk: print(chunk.content, end="", flush=True),
-    url="http://localhost:11434",
+    url=sys.argv[1],
     generation_kwargs={
         "num_predict": 1024,
         "temperature": 0.01})
@@ -108,4 +109,4 @@ demo = gr.ChatInterface(
     examples=questions,
     title="ChatGPT-like clone",
 )
-demo.launch(share=True)
+demo.launch(server_name="0.0.0.0", share=True)

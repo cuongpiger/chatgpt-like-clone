@@ -9,6 +9,8 @@ _This is just a small project for lab purposes. NOT for production._
 - [Next plans](#next-plans)
 - [Overview](#overview)
 - [Installation](#installation)
+  - [Local](#local)
+  - [Kubernetes](#kubernetes)
 
 <hr>
 
@@ -27,7 +29,7 @@ _This is just a small project for lab purposes. NOT for production._
 # Next plans
 
 - [ ] Integrated with Triton Inference Server.
-- [ ] Deploy it on Kubernetes.
+- [x] Deploy it on Kubernetes.
 - [ ] Streaming messages.
 - [x] Multi-session support.
 
@@ -39,7 +41,7 @@ _This is just a small project for lab purposes. NOT for production._
   ![](./assets/01.png)
 
 # Installation
-
+## Local
 - To run it:
     - Enable GPU in
       Docker [https://github.com/ollama/ollama/blob/main/docs/docker.md](https://github.com/ollama/ollama/blob/main/docs/docker.md):
@@ -69,3 +71,48 @@ _This is just a small project for lab purposes. NOT for production._
       ```
     - Visit [http://localhost:7860](http://localhost:7860) to chat with the model.
     
+
+## Kubernetes
+- If you tend to deploy this application on Kubernetes, apply the manifest [app.yaml](./app.yaml), then access the application by the public IP of the worker nodes on port `30007`.
+  ```yaml
+  # File app.yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: chatgpt-clone-deployment
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: chatgpt-clone
+    template:
+      metadata:
+        labels:
+          app: chatgpt-clone
+      spec:
+        containers:
+        - name: chatgpt-clone
+          image: vcr.vngcloud.vn/60108-cuongdm3/chatgpt-like-clone:base
+          command: ["python"]
+          args: ["main.py", "http://ollama33.ollama"]  # please chaage the ollama server address
+          ports:
+          - containerPort: 7860
+        nodeSelector:
+          vks.vngcloud.vn/nodegroup: nodegroup-27051 
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: chatgpt-clone-service
+  spec:
+    selector:
+      app: chatgpt-clone
+    type: NodePort
+    ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 7860
+      nodePort: 30007 # Specify a fixed NodePort (optional) or let Kubernetes choose
+  ```
+
+  ![](./assets/02.png)
