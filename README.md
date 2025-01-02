@@ -42,6 +42,7 @@ _This is just a small project for lab purposes. NOT for production._
   ![](./assets/01.png)
 
 # Installation
+- Until this step, this application support running on **Local** and **Kubernetes**. Depending on your environment, you can choose the suitable way to deploy it.
 ## Local
 - To run it:
     - Enable GPU in
