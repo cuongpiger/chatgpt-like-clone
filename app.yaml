@@ -16,7 +16,7 @@ spec:
       - name: chatgpt-clone
         image: vcr.vngcloud.vn/60108-cuongdm3/chatgpt-like-clone:base
         command: ["python"]
-        args: ["main.py", "http://ollama33.ollama"]  # please chaage the ollama server address
+        args: ["main.py", "http://ollama33.ollama"]  # please chaage the ollama server address, remember append porstgresql_uri if you want to use database
         ports:
         - containerPort: 7860
       nodeSelector:

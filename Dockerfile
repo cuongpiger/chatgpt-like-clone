@@ -1,6 +1,7 @@
-FROM python:3.11
+FROM vcr.vngcloud.vn/60108-cuongdm3/chatgpt-like-clone:base
 
 ARG OLLAMA_ENDPOINT
+ARG POSTGRES_URI
 
 # Set the working directory
 WORKDIR /app
@@ -8,6 +9,6 @@ WORKDIR /app
 COPY main.py main.py
 COPY sample.pdf sample.pdf
 
-RUN pip install --upgrade pip && pip install haystack-ai gradio ollama-haystack pdfminer.six sentence-transformers
+RUN pip install pgvector-haystack
 
-ENTRYPOINT [ "python /app/main.py", "${OLLAMA_ENDPOINT}" ]
+ENTRYPOINT [ "python /app/main.py", "${OLLAMA_ENDPOINT}", "${POSTGRES_URI}" ]

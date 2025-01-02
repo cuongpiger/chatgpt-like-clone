@@ -10,25 +10,36 @@ from haystack.components.embedders import SentenceTransformersTextEmbedder
 from haystack.components.builders import ChatPromptBuilder
 from haystack.dataclasses import ChatMessage
 from gradio import ChatMessage as GradioChatMessage
-from haystack.utils import Secret
 from haystack_integrations.components.generators.ollama import OllamaChatGenerator
 from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
-from haystack_integrations.document_stores.pgvector import PgvectorDocumentStore
-from haystack_integrations.components.retrievers.pgvector import PgvectorEmbeddingRetriever
 
 import gradio as gr
 from typing import List
 import sys
 
-document_store = PgvectorDocumentStore(
-    embedding_dimension=384,
-    vector_function="cosine_similarity",
-    recreate_table=False,
-    search_strategy="hnsw",
-    connection_string=Secret.from_token(sys.argv[2])
-)
+raw_document_store = InMemoryDocumentStore(embedding_similarity_function="cosine")
+document_store = InMemoryDocumentStore(embedding_similarity_function="cosine")
 
-text_embedder = SentenceTransformersTextEmbedder(truncate_dim=384, model="sentence-transformers/all-MiniLM-L6-v2")
+pipeline = Pipeline()
+pipeline.add_component("converter", PDFMinerToDocument())
+pipeline.add_component("cleaner", DocumentCleaner())
+pipeline.add_component("splitter", DocumentSplitter(split_by="sentence", split_length=20, split_overlap=15))
+pipeline.add_component("writer", DocumentWriter(document_store=raw_document_store))
+
+pipeline.connect("converter", "cleaner")
+pipeline.connect("cleaner", "splitter")
+pipeline.connect("splitter", "writer")
+
+file_names = ["sample.pdf"]
+pipeline.run({"converter": {"sources": file_names}})
+
+doc_embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+doc_embedder.warm_up()
+
+docs_with_embeddings = doc_embedder.run(raw_document_store.filter_documents())
+document_store.write_documents(docs_with_embeddings["documents"])
+
+text_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
 # Create generator component
 model_name = "llama3.1:8b"
 chat_generator = OllamaChatGenerator(
@@ -59,7 +70,7 @@ Answer:
 """)]
 
 prompt_builder = ChatPromptBuilder(template=template)
-retriever = PgvectorEmbeddingRetriever(document_store=document_store)
+retriever = InMemoryEmbeddingRetriever(document_store)
 basic_rag_pipeline = Pipeline()
 # Add components to your pipeline
 basic_rag_pipeline.add_component("text_embedder", text_embedder)
