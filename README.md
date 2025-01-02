@@ -35,6 +35,7 @@ _This is just a small project for lab purposes. NOT for production._
 
 # Overview
 
+- The docker image located at `vcr.vngcloud.vn/60108-cuongdm3/chatgpt-like-clone:base`.
 - **ChatGPT-like clone** is a web-chat application using Gradio and Haystack.
 - Currently, I am using `llama3.1:8b` model as the default model.
 - The model is running in a **Ollama** Docker container with **GPU support**.
