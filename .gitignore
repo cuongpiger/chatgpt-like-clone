@@ -3,3 +3,8 @@
 .venv
 venv
 .gradio
+
+secrets
+
+
+__pycache__
