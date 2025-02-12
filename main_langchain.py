@@ -27,12 +27,24 @@ from typing_extensions import List, TypedDict, Annotated, Literal
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
+from langchain_community.llms import VLLMOpenAI
+from langchain_openai import ChatOpenAI
+
+
+VLLM_ENDPOINT = "http://vai-inference-a40.vngcloud.tech/endpoint-xxxx/v1"
+VLLM_MODEL = "Valdemardi/DeepSeek-R1-Distill-Llama-70B-AWQ"
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
     "/home/stackops/secret/work/vngcloud/ai-platform/vertex-ai-credential.json"
 )
 
-llm = ChatVertexAI(model="gemini-1.5-flash")
+llm = ChatOpenAI(
+    model=VLLM_MODEL,
+    openai_api_key="EMPTY",
+    openai_api_base=VLLM_ENDPOINT,
+    temperature=0,
+)
+
 embeddings_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
 )
