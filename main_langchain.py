@@ -11,11 +11,17 @@ import bs4
 from langchain import hub
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.documents import Document
+from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph, MessagesState
 from langchain_core.messages import SystemMessage
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import END
+from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_postgres import PGVector
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_postgres.vectorstores import PGVector
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from typing_extensions import List, TypedDict, Annotated, Literal
@@ -39,100 +45,80 @@ embeddings_model = HuggingFaceEmbeddings(
 # See docker command above to launch a postgres instance with pgvector enabled.
 connection = "postgresql+psycopg://langchain:langchain@localhost:6024/langchain"  # Uses psycopg3!
 collection_name = "my_docs"
-vector_store = PGVector(
+vectorstore = PGVector(
     embeddings=embeddings_model,
     collection_name=collection_name,
     connection=connection,
     use_jsonb=True,
 )
+retriever = vectorstore.as_retriever()
 
-graph_builder = StateGraph(MessagesState)
-
-@tool(response_format="content_and_artifact")
-def retrieve(query: str):
-    """Retrieve information related to a query."""
-    retrieved_docs = vector_store.similarity_search(query, k=10)
-    print(f"HERE: {retrieved_docs}")
-    serialized = "\n\n".join(
-        (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
-        for doc in retrieved_docs
-    )
-    return serialized, retrieved_docs
-
-# Step 1: Generate an AIMessage that may include a tool-call to be sent.
-def query_or_respond(state: MessagesState):
-    """Generate tool call for retrieval or respond."""
-    llm_with_tools = llm.bind_tools([retrieve])
-    response = llm_with_tools.invoke(state["messages"])
-    # MessagesState appends messages to state instead of overwriting
-    return {"messages": [response]}
-
-# Step 2: Execute the retrieval.
-tools = ToolNode([retrieve])
-
-# Step 3: Generate a response using the retrieved content.
-def generate(state: MessagesState):
-    """Generate answer."""
-    # Get generated ToolMessages
-    recent_tool_messages = []
-    for message in reversed(state["messages"]):
-        if message.type == "tool":
-            recent_tool_messages.append(message)
-        else:
-            break
-    tool_messages = recent_tool_messages[::-1]
-
-    # Format into prompt
-    docs_content = "\n\n".join(doc.content for doc in tool_messages)
-    system_message_content = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise."
-        "\n\n"
-        f"{docs_content}"
-    )
-    conversation_messages = [
-        message
-        for message in state["messages"]
-        if message.type in ("human", "system")
-        or (message.type == "ai" and not message.tool_calls)
+contextualize_q_system_prompt = """Given a chat history and the latest user question \
+which might reference context in the chat history, formulate a standalone question \
+which can be understood without the chat history. Do NOT answer the question, \
+just reformulate it if needed and otherwise return it as is."""
+contextualize_q_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", contextualize_q_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
     ]
-    prompt = [SystemMessage(system_message_content)] + conversation_messages
-
-    # Run
-    response = llm.invoke(prompt)
-    return {"messages": [response]}
-
-graph_builder.add_node(query_or_respond)
-graph_builder.add_node(tools)
-graph_builder.add_node(generate)
-
-graph_builder.set_entry_point("query_or_respond")
-graph_builder.add_conditional_edges(
-    "query_or_respond",
-    tools_condition,
-    {END: END, "tools": "tools"},
 )
-graph_builder.add_edge("tools", "generate")
-graph_builder.add_edge("generate", END)
+history_aware_retriever = create_history_aware_retriever(
+    llm, retriever, contextualize_q_prompt
+)
 
-memory = MemorySaver()
-graph = graph_builder.compile(checkpointer=memory)
 
-# Specify an ID for the thread
-config = {"configurable": {"thread_id": "abc123"}}
+### Answer question ###
+qa_system_prompt = """You are an assistant for question-answering tasks. \
+Use the following pieces of retrieved context to answer the question. \
+If you don't know the answer, just say that you don't know. \
+Use three sentences maximum and keep the answer concise.\
 
+{context}"""
+qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", qa_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+
+### Statefully manage chat history ###
+store = {}
+
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+
+conversational_rag_chain = RunnableWithMessageHistory(
+    rag_chain,
+    get_session_history,
+    input_messages_key="input",
+    history_messages_key="chat_history",
+    output_messages_key="answer",
+)
+
+config = {
+        "configurable": {"session_id": "abc123"}
+    }
 
 def chat(message, history):
-    res = graph.invoke(
-        {"messages": [{"role": "user", "content": message}]},
+    res = conversational_rag_chain.invoke(
+        {"input": message},
         stream_mode="values",
         config=config,
     )
 
-    llm_response = res["messages"][-1].content
+    print(res)
+    llm_response = res["answer"]
     return llm_response
 
 
