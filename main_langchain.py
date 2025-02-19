@@ -85,12 +85,15 @@ def generate(state: MessagesState):
     # Format into prompt
     docs_content = "\n\n".join(doc.content for doc in tool_messages)
     system_message_content = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise."
-        "\n\n"
+        # "You are an assistant for question-answering tasks. "
+        # "Use the following pieces of retrieved context to answer "
+        # "the question. If you don't know the answer, say that you "
+        # "don't know. Use three sentences maximum and keep the "
+        # "answer concise."
+        "Bạn là một trợ lí ảo nhằm trả lời các thắc mắc cho khách hàng của VngCloud.",
+        "Câu trả lời của bạn phải có liên quan đến ngữ cảnh cung cấp. Nếu không liên quan hãy yêu cầu cung cấp thêm thông tin.",
+        "Bạn PHẢI trả lời bằng TIẾNG VIỆT"
+        "\n\n NGỮ CẢNH"
         f"{docs_content}"
     )
     conversation_messages = [
