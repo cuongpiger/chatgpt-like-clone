@@ -52,7 +52,6 @@ graph_builder = StateGraph(MessagesState)
 def retrieve(query: str):
     """Retrieve information related to a query."""
     retrieved_docs = vector_store.similarity_search(query, k=10)
-    print(f"HERE: {retrieved_docs}")
     serialized = "\n\n".join(
         (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
         for doc in retrieved_docs
